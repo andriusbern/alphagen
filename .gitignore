@@ -1,0 +1,8 @@
+**/__pycache__
+alphagen.egg-info/
+**/.ipynb_checkpoints
+
+
+## Best models
+/trained_models/*
+!/trained_models/360
