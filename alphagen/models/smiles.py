@@ -2,17 +2,11 @@ import random
 import torch
 import torch.nn as nn
 from torch.nn.init import kaiming_normal_
-from .layer import PositionalEmbedding, PositionwiseFeedForward, SublayerConnection, DecoderLayer
+from .layer import PositionalEmbedding, DecoderLayer
 from .layer import pad_mask, tri_mask
-from alphagen.utils.utils import ScheduledOptim
-from torch import optim
-
-import time
-from tqdm import tqdm
 
 dev = torch.device('cuda')
 devices = [0]
-
 
 class GPT2Decoder(nn.Module):
     def __init__(self, voc, d_emb=384, d_model=512, n_head=16, d_inner=512, n_layer=12, pad_idx=0):
@@ -26,11 +20,10 @@ class GPT2Decoder(nn.Module):
 
         self.token_emb = nn.Embedding(voc.size, self.d_emb, padding_idx=pad_idx)
         self.posit_emb = PositionalEmbedding(self.d_emb, max_len=voc.max_len) #  + voc.max_len
-
         self.blocks = nn.ModuleList([DecoderLayer(self.d_emb, self.n_head, d_inner=d_inner) for _ in range(self.n_layer)])
-
         self.layer_norm = nn.LayerNorm(self.d_emb)
         self.word_prj = nn.Linear(self.d_emb, self.voc.size)
+        
         kaiming_normal_(self.word_prj.weight, nonlinearity="linear")
         self.x_logit_scale = (d_model ** -0.5)
         
@@ -45,7 +38,7 @@ class GPT2Decoder(nn.Module):
 
 class AF2SmilesTransformer(nn.Module):
     """
-    Generative transformer encoder-decoder model that is conditioned for a specific target using 
+    Generative transformer encoder-gpt2 model that is conditioned for a specific target using 
     AlphaFold2 embeddings
     """
     def __init__(self, voc_trg, d_emb=384, d_model=384, n_head=16, d_inner=384, n_layer=6, pad_idx=0):
@@ -62,7 +55,6 @@ class AF2SmilesTransformer(nn.Module):
         self.loss_coefficients = {}
         self.init_states()
         
-
     def init_states(self):
         for p in self.parameters():
             if p.dim() > 1:
@@ -70,8 +62,8 @@ class AF2SmilesTransformer(nn.Module):
             self.to(dev)
 
     def forward(self, x, mem, train=False, pchembl_targets=None, calc_pchembl=False):
-
         batch_size = len(x)
+        z = torch.zeros(batch_size, 1).long().to(dev)
         # Generation
         if not train:
             loss = 0

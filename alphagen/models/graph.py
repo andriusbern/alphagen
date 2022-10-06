@@ -1,7 +1,7 @@
 import sys
 import torch
 import torch.nn as nn
-from alphagen.model.generator import Base
+from alphagen.models.generator import Base
 from alphagen.utils.utils import ScheduledOptim
 from torch import optim
 from torch.nn import functional as F
@@ -128,7 +128,7 @@ class TargetConditionedGraphGenerator(Base):
         self.d_emb = d_emb
 
         # Encoder-Decoder
-        self.encoder = ProteinStringEncoder(d_emb=d_emb, d_model=d_model, n_head=n_head, d_inner=d_inner)
+        self.encoder = ProteinStringEncoder(voc=voc_trg, d_emb=d_emb, d_model=d_model, n_head=n_head, d_inner=d_inner)
         self.decoder = MoleculeGraphDecoder(d_model=d_model, n_head=n_head, 
                                        d_inner=d_inner, n_layer=n_layer)
 
@@ -227,7 +227,12 @@ class TargetConditionedGraphGenerator(Base):
             voc_mask = self.voc_trg.masks.to(y.device) # Need to figure out where voc_trg is declared
 
             # Iterative growing of the molecule (cryptic af)
+
             for step in range(1, self.n_grows):
+                _emb = y[:, step, 0] # Get generated _emb
+                num = (vals_max > 0).sum(dim=1)
+                vals_max[order, num] = voc_mask[_emb]
+                vals_rom = vals_max - exists.sum(dim=1)
 
                 if is_end.all():
                     y[:, step, :] = 0
@@ -247,7 +252,7 @@ class TargetConditionedGraphGenerator(Base):
                 if step <= 2: # First token after BOS I guess
                     mask[:, -1] = True 
                 else:
-                    judge = (vals_rom == 0) | (exists[order, curr, :] != 0) # vals_rom defined later as 
+                    judge = (vals_rom == 0) | (exists[order, curr, :] != 0) # vals_rom defined later as  # 
                     judge[order, curr] = True # Order is a indexing vector of len=N ([0,1,2,3,...,n]); curr is zeros of length N
                     judge = judge.all(dim=1) | (vals_rom[order, curr] == 0)
                     mask[judge, -1] = True

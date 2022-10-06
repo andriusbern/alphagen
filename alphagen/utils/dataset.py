@@ -7,6 +7,9 @@ import pickle
 import numpy as np
 from tqdm import tqdm
 from alphagen.utils.utils import VocSmiles
+from torch.utils.data import Dataset as TorchDataset
+from SmilesEnumerator import SmilesEnumerator
+import random
 
 LENGTH_PAPYRUS = 61085165
 
@@ -63,7 +66,7 @@ class ProteinDataset:
         return protein_dict
 
         
-class ProteinSmilesDataset(torch.utils.data.Dataset, ProteinDataset):
+class ProteinSmilesDataset(TorchDataset, ProteinDataset):
     """Class for storing both AF and papyrus data"""
 
     def __init__(self, data_dir, dataset_prefix, batch_size=32, **kwargs):
@@ -103,9 +106,77 @@ class ProteinSmilesDataset(torch.utils.data.Dataset, ProteinDataset):
         return protein_embeddings, encoded_smiles, pchembl
 
     def read_dataset(self):
+        """
+        Reads the dataset and returns a list of strings with the following format
+            protein_id \t SMILES \t pchembl
+        """
         with open(self.dataset_path, 'r') as data:
             dataset = data.readlines()
         return dataset[1:]
+    
+    def write_dataset(self, dataset_path):
+        """
+        Writes the dataset to a file
+        """
+        with open(dataset_path, 'w') as data:
+            for line in self.tsv_dataset:
+                data.write(line)
+
+    def augment(self, min_ratio=0.5):
+        """
+        Performs data augmentation - this should really be done at the creation state, because most of this code
+        is merely redoing whatever process was used to create the dataset in the first place
+
+        The procedure is as follows - since each target in the dataset has a varying number of SMILES, we
+        try to equalize this number by randomly permuting existing SMILES to reach the desired minimum number
+        
+        The min_ratio is the minimum number of SMILES per target that we want to reach (if max was)
+        """
+        ## Count the number of smiles per by iterating through the dataset
+        count_dict, smiles_dict = {}, {}
+        for data in self.tsv_dataset:
+            pid, pchembl, tokens = data.split('\t')
+            if count_dict.get(pid) is None:
+                count_dict[pid] = 1
+            else:
+                count_dict[pid] += 1
+
+            if smiles_dict.get(pid) is None:
+                smiles_dict[pid] = []
+            else:
+                smiles_dict[pid] += 1
+        
+        pids, counts = count_dict.items()
+        max_count = max(counts.values())
+
+        ## Augment the dataset by generating alternative smiles for targets
+        # that have a low number of datapoints
+        for protein, count in counts.items():
+            if count < max_count * min_ratio:
+                smiles = self.protein_embeddings[protein]
+                for i in range(max_count - count):
+                    self.tsv_dataset.append(f'{protein}\t{smiles[i]}\t0.0')
+
+
+        
+        
+        
+def generate_alternatives(smiles, num_alternatives):
+    """
+    Generates alternative SMILES for given SMILES strings
+    """
+    enumerator = SmilesEnumerator()
+
+    augmented = []
+    for i in range(num_alternatives):
+        smile = random.sample(smiles, 1)
+        alternative = enumerator.randomize_smiles(smiles)
+        augmented.append(alternative)
+    
+    return augmented
+        
+
+            
 
 
 def clean_dataset(af_output_dir, output_dir):
@@ -144,6 +215,34 @@ def clean_dataset(af_output_dir, output_dir):
                 shutil.copy(os.path.join(src_dir, file), os.path.join(protein_dir, file))
             except:
                 pass
+
+
+def get_all_counts(dataset_path):
+    """
+    Returns a dictionary of counts for each protein in the dataset
+    """
+    protein_id_idx = 9
+    pchembl_val_idx = 21
+    smiles_idx = 4
+    with open(dataset_path, 'r') as data:
+        dataset = data.readlines()
+    
+    count_dict = {}
+    with open(dataset_path, 'r') as papyrus:
+        print('Processing papyrus...')
+        header = papyrus.readline()
+        for _ in tqdm(range(LENGTH_PAPYRUS)): # Process all papyrus entries
+            try:
+                entry = papyrus.readline()
+                attributes = entry.split('\t')
+                pid = attributes[protein_id_idx]
+                if count_dict.get(pid) is None:
+                    count_dict[pid] = 1
+                else:
+                    count_dict[pid] += 1
+            except:
+                pass
+    return count_dict
 
 
 def build_dataset(af_output_dir, output_dir, papyrus_file, output_dataset_prefix, 
@@ -207,7 +306,7 @@ def build_dataset(af_output_dir, output_dir, papyrus_file, output_dataset_prefix
                         out = f'{protein_id}\t{pchembl_val}\t{tokens}\n'
                         open(out_file, 'a').write(out).close()
             except:
-                print(entry)
+                print('Something went wrong with this entry:')
 
     # Save vocabulary file
     if save_voc:

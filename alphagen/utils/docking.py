@@ -1,6 +1,5 @@
-
-
 import os, subprocess
+import rdkit
 from meeko import MoleculePreparation
 from rdkit import Chem
 

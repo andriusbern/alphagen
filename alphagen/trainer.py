@@ -3,7 +3,7 @@ from torch import nn
 from tqdm import tqdm
 
 from alphagen.utils.dataset import ProteinSmilesDataset
-from alphagen.model.smiles import AF2SmilesTransformer
+from alphagen.models import AF2SmilesTransformer
 from alphagen.utils.utils import VocSmiles, check_smiles
 import os
 from torch.utils.data import DataLoader
@@ -39,7 +39,8 @@ class Runner:
     def __init__(self, config: RunnerConfig=None, model_num: int=-1) -> None:
         
         if model_num > -1:
-            model_dir = os.path.join('trained_models', str(model_num))
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            model_dir = os.path.join(base_dir, 'trained_models', str(model_num))
             config_path = os.path.join(model_dir, 'config.yaml')
             config = self.config = load_config_from_file(config_path)
             config.model_dir = model_dir

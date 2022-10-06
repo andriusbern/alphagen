@@ -1,1 +1,1 @@
-from smiles import AF2SmilesTransformer
+from .smiles import AF2SmilesTransformer
