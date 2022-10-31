@@ -11,7 +11,7 @@ import time
 import random
 import numpy as np
 
-from alphagen.config import DatasetConfig, RunnerConfig, load_config_from_file
+from alphagen.config import DatasetConfig, RunnerConfig, load_config_from_file, save_config
 
 ## Suppress RDKit warnings
 from rdkit import RDLogger
@@ -32,15 +32,26 @@ def load_dataset(voc, config: DatasetConfig):
     protein_list = os.path.join(dataset_dir, f'{dataset_prefix}', f'{dataset_prefix}.txt')
     dataset = ProteinSmilesDataset(dataset_dir, dataset_prefix=dataset_prefix, 
                                             voc=voc, protein_set=protein_list)
+    prots = {}
+    for line in dataset.tsv_dataset:
+        pid, c, smiles = line.split('\t')
+        if prots.get(pid) is None:
+            prots[pid] = 1
+        else:
+            prots[pid] += 1
+    
+    print(prots)
+        
+
     return dataset
 
 
 class Runner:
     def __init__(self, config: RunnerConfig=None, model_num: int=-1) -> None:
         
-        if model_num > -1:
+        if model_num is not None:
             base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            model_dir = os.path.join(base_dir, 'trained_models', str(model_num))
+            model_dir = os.path.join(base_dir, 'alphagen', 'trained_models', str(model_num))
             config_path = os.path.join(model_dir, 'config.yaml')
             config = self.config = load_config_from_file(config_path)
             config.model_dir = model_dir
@@ -50,7 +61,7 @@ class Runner:
         self.dataset = load_dataset(self.voc, config.dataset)
         self.model   = AF2SmilesTransformer(self.voc, **config.model.__dict__)
 
-        if model_num > -1:
+        if model_num is not None:
             weights_file = os.path.join(config.model_dir, 'model.pkg')
             self.model.load_state_dict(torch.load(weights_file, map_location=self.config.dev))
 

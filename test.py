@@ -14,7 +14,7 @@ lg.setLevel(RDLogger.CRITICAL)
 dev = torch.device('cuda')
 devices = [0]
 
-from trainer import Runner
+from alphagen.trainer import Runner
 
 
 if __name__ == "__main__":

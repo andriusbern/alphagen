@@ -8,7 +8,7 @@ import numpy as np
 from tqdm import tqdm
 from alphagen.utils.utils import VocSmiles
 from torch.utils.data import Dataset as TorchDataset
-from SmilesEnumerator import SmilesEnumerator
+from .SmilesEnumerator import SmilesEnumerator
 import random
 
 LENGTH_PAPYRUS = 61085165
@@ -21,6 +21,8 @@ class ProteinDataset:
         self.data_dir = data_dir
         self.protein_dir = os.path.join(data_dir, 'foldedPapyrus', 'proteins')
         self.max_len = 768
+        self.emb_max = None
+        self.emb_min = None
         
         # Embedding dict accessible via protein_id
         self.protein_embeddings = self.load_protein_embeddings(protein_set)
@@ -36,6 +38,7 @@ class ProteinDataset:
         np_file = np.load(embedding_file)
         embedding = torch.from_numpy(np_file)
         n, f = embedding.shape
+        print(protein_id, n, f)
         output = torch.zeros(self.max_len, f)
         output[:n, :f] = embedding
         return output, embedding.shape
@@ -51,13 +54,14 @@ class ProteinDataset:
                 pids = pids.readlines()
                 pids = [p.strip('\n') for p in pids]
             protein_ids = list(set(pids).intersection(set(protein_ids)))
+        protein_ids.sort()
 
 
         # Scaling in the range [-1, 1] (based on min/max values of each feature)
         embs = [self.get_protein_embedding(pid)[0] for pid in protein_ids]
         concat = torch.cat(embs, dim=0)
-        emb_max = torch.max(concat, dim=0)[0]
-        emb_min = torch.min(concat, dim=0)[0]
+        emb_max = self.emb_max = torch.max(concat, dim=0)[0]
+        emb_min = self.emb_min = torch.min(concat, dim=0)[0]
 
         for i, pid in enumerate(protein_ids):
             scaled_embedding = (embs[i] - emb_min) / (emb_max - emb_min) * 2 - 1
@@ -157,9 +161,6 @@ class ProteinSmilesDataset(TorchDataset, ProteinDataset):
                 for i in range(max_count - count):
                     self.tsv_dataset.append(f'{protein}\t{smiles[i]}\t0.0')
 
-
-        
-        
         
 def generate_alternatives(smiles, num_alternatives):
     """
@@ -175,9 +176,6 @@ def generate_alternatives(smiles, num_alternatives):
     
     return augmented
         
-
-            
-
 
 def clean_dataset(af_output_dir, output_dir):
     """
@@ -280,6 +278,7 @@ def build_dataset(af_output_dir, output_dir, papyrus_file, output_dataset_prefix
     pchembl_val_idx = 21
     smiles_idx = 4
 
+
     with open(papyrus_file, 'r') as papyrus:
         print('Processing papyrus...')
         header = papyrus.readline()
@@ -322,4 +321,3 @@ if __name__ == "__main__":
     output_dataset_prefix = 'dataset'
 
     build_dataset(af_output_dir, output_dir, papyrus_file, output_dataset_prefix, process=False)
-

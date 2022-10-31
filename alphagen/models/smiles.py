@@ -1,12 +1,12 @@
 import random
 import torch
 import torch.nn as nn
-from torch.nn.init import kaiming_normal_
 from .layer import PositionalEmbedding, DecoderLayer
 from .layer import pad_mask, tri_mask
 
 dev = torch.device('cuda')
 devices = [0]
+
 
 class GPT2Decoder(nn.Module):
     def __init__(self, voc, d_emb=384, d_model=512, n_head=16, d_inner=512, n_layer=12, pad_idx=0):
@@ -24,10 +24,10 @@ class GPT2Decoder(nn.Module):
         self.layer_norm = nn.LayerNorm(self.d_emb)
         self.word_prj = nn.Linear(self.d_emb, self.voc.size)
         
-        kaiming_normal_(self.word_prj.weight, nonlinearity="linear")
+        torch.nn.init.kaiming_normal_(self.word_prj.weight, nonlinearity="linear")
         self.x_logit_scale = (d_model ** -0.5)
         
-
+        
     def forward(self, x, mem, trg_mask=None, atn_mask=None):
         x = self.posit_emb(x) + self.token_emb(x)
         for block in self.blocks:

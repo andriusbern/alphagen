@@ -13,7 +13,7 @@ class ModelConfig:
 
 @dataclass
 class DatasetConfig:
-    dataset_prefix: str = 'MonoamineR_human_65'
+    dataset_prefix: str = 'MonoamineR_human_0_aug_no_Q96RJ0_P21917'
     dataset_dir:    str = '/media/andrius/Extreme SSD/datasets'
     max_smiles_len: int = 100
 
@@ -21,7 +21,7 @@ class DatasetConfig:
 class TrainerConfig:
     epochs:               int = 100
     batch_size:           int = 32
-    eval_every_n_batches: int = 100
+    eval_every_n_batches: int = 500
     save_every_n_batches: int = 100
     lr:                   float = 2e-4
 

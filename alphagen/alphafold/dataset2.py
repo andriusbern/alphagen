@@ -6,9 +6,9 @@ import numpy as np
 from tqdm import tqdm
 import pandas as pd
 from utils import VocSmiles
+from alphagen.utils.SmilesEnumerator import SmilesEnumerator
 
 LENGTH_PAPYRUS = 61085165
-from SmilesEnumerator import SmilesEnumerator
 
 class ProteinDataset:
     """Class for loading and storing AlphaFold embeddings in torch.Tensor format"""
@@ -172,6 +172,34 @@ def generate_alternative_smiles(smiles, enumerator, max_alternatives=10, n_attem
     return alternatives[:max_alternatives]
 
 
+# def get_all_counts(dataset_path):
+#     """
+#     Returns a dictionary of counts for each protein in the dataset
+#     """
+#     protein_id_idx = 9
+#     pchembl_val_idx = 21
+#     smiles_idx = 4
+#     with open(dataset_path, 'r') as data:
+#         dataset = data.readlines()
+    
+#     count_dict = {}
+#     with open(dataset_path, 'r') as papyrus:
+#         print('Processing papyrus...')
+#         header = papyrus.readline()
+#         for _ in tqdm(range(LENGTH_PAPYRUS)): # Process all papyrus entries
+#             try:
+#                 entry = papyrus.readline()
+#                 attributes = entry.split('\t')
+#                 pid = attributes[protein_id_idx]
+#                 if count_dict.get(pid) is None:
+#                     count_dict[pid] = 1
+#                 else:
+#                     count_dict[pid] += 1
+#             except:
+#                 pass
+#     return count_dict
+
+
 def build_dataset(af_output_dir, output_dir, papyrus_file, output_dataset_prefix,
                   protein_targets_file=None, save_voc=True, process=False, target_pchembl=0.0,
                   num_copies_of_smiles=1):
@@ -230,6 +258,12 @@ def build_dataset(af_output_dir, output_dir, papyrus_file, output_dataset_prefix
 
     ## Smiles duplication
     sme = SmilesEnumerator()
+
+
+    ### Most logical and fast way to do things would be the following:
+    # 1. Read the target protein list
+    # 2. Go through papyrus and collect all the smiles, pchembl values, store in a dict, count occurences
+
 
     # Processing line by line because of the dataset size
     with open(papyrus_file, 'r') as papyrus:
@@ -315,7 +349,7 @@ def create_protein_subset_file(output_dir, write_out_file=False):
 if __name__ == "__main__":
     pchembl = 6.5
     af_output_dir = '/media/andrius/Extreme SSD/datasets/foldedPapyrus/proteins/'
-    output_dataset_prefix = 'MonoamineR_human_65_10x_5-100'
+    output_dataset_prefix = 'ar_kin_ccr_mono_slc6'
     output_dir = f'/home/andrius/git/datasets/{output_dataset_prefix}'
     papyrus_file = '/media/andrius/Extreme SSD/05.4_combined_set_with_stereochemistry.tsv'
 
@@ -323,7 +357,7 @@ if __name__ == "__main__":
     # output_dir = '/data/bernataviciusa/af_data/data/kinases'
     # papyrus_file = '/data/bernataviciusa/af_data/papyrus/papyrus_.tsv'
     # output_dataset_prefix = 'dataset'
-    protein_targets_file = '/home/andrius/git/datasets/MonoamineR_human_65.txt'
+    protein_targets_file = '/home/andrius/git/datasets/ar_kin_ccr_mono.txt'
 
     build_dataset(af_output_dir, output_dir, papyrus_file,
                   output_dataset_prefix, protein_targets_file=protein_targets_file,
@@ -345,3 +379,11 @@ if __name__ == "__main__":
 # 2. Monoamine human - 3.3M entries, 36 targets
 # 3. Kin human high  - 264k entries, 435 targets
 # 4. Use the accesions in Kin_human_high to assemble another one with all entries (should be quite a lot)
+
+
+## The final big dataset:
+# 1. ARs
+# 2. Kinases
+# 3. Monoamine receptors
+# 4. CCRs
+# 5. SLC6
